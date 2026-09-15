@@ -28,7 +28,7 @@ def fetch_weather_city(city: tuple[str, dict]) -> pd.DataFrame:
     data = response.json()["hourly"]
 
     df = pd.DataFrame(data)
-    df["City"] = city_name
+    df["city"] = city_name
     df = df.rename(
         columns={
             "time": "date",
@@ -41,13 +41,13 @@ def fetch_weather_city(city: tuple[str, dict]) -> pd.DataFrame:
     return df
 
 
-def fetch_weather_all_cities() -> pd.DataFrame:
+def fetch_weather_all() -> pd.DataFrame:
     all_dfs = [fetch_weather_city(city) for city in CITIES.items()]
     return pd.concat(all_dfs)
 
 
 if __name__ == "__main__":
-    weather_df = fetch_weather_all_cities()
+    weather_df = fetch_weather_all()
     print("\nAperçu du jeu de données Météo :")
     print(weather_df.head())
     print(f"\nTotal enregistrements : {len(weather_df)}")
