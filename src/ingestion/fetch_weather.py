@@ -20,13 +20,13 @@ def fetch_weather_city(city: tuple[str, dict]) -> pd.DataFrame:
             "wind_speed_10m",
         ],
         "timezone": "Europe/London",
-        "forecast_days": 1
+        "forecast_days": 1,
     }
-    
+
     response = requests.get(url=BASE_URL, params=params, timeout=10)
     response.raise_for_status()
     data = response.json()["hourly"]
-    
+
     df = pd.DataFrame(data)
     df["City"] = city_name
     df = df.rename(
@@ -39,11 +39,13 @@ def fetch_weather_city(city: tuple[str, dict]) -> pd.DataFrame:
     )
     df["date"] = pd.to_datetime(df["date"])
     return df
-    
+
+
 def fetch_weather_all_cities() -> pd.DataFrame:
     all_dfs = [fetch_weather_city(city) for city in CITIES.items()]
-    return(pd.concat(all_dfs))    
-    
+    return pd.concat(all_dfs)
+
+
 if __name__ == "__main__":
     weather_df = fetch_weather_all_cities()
     print("\nAperçu du jeu de données Météo :")
