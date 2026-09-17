@@ -8,7 +8,7 @@ REGIONS = ["Pays de la Loire", "Nouvelle-Aquitaine"]
 
 def fetch_energy_region(region: str) -> pd.DataFrame:
     params = {
-        "limit": 2,
+        "limit": 100,
         "refine": f'libelle_region:"{region}"',
         "where": "consommation is NOT null",
         "order_by": "date_heure DESC",

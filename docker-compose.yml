@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: energy_weather_db
+    environment:
+      POSTGRES_DB: energy_weather_db
+      POSTGRES_USER: data_user
+      POSTGRES_PASSWORD: data_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
