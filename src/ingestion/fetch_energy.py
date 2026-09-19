@@ -22,8 +22,8 @@ def fetch_energy_region(region: str) -> pd.DataFrame:
         columns={
             "date_heure": "date",
             "libelle_region": "region",
-            "consommation": "consumption_mwh",
-            "production": "production_mwh",
+            "consommation": "consumption_mw",
+            "production": "production_mw",
         }
     )
     df["date"] = pd.to_datetime(df["date"])

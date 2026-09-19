@@ -58,12 +58,12 @@ def run_pipeline():
     # 3. Alignement des noms de colonnes avec schema.sql
     # Adapte ces noms selon le nom exact de tes colonnes issues de la fusion
     column_mapping = {
-        "temperature_celsius": "temp_mean_celsius",  # Exemple selon tes données
-        "precipitation": "precipitation_mm",
-        "wind_speed": "wind_speed_max_kmh",
-        "consommation": "consumption_mw",
+        "temp_celsius": "temp_mean_celsius",
+        "rain_mm": "precipitation_mm",
     }
     df_merged = df_merged.rename(columns=column_mapping)
+
+    print(df_merged.head())
 
     # 4. Sélection stricte des colonnes de fact_weather_energy
     fact_columns = [
@@ -72,7 +72,7 @@ def run_pipeline():
         "hour",
         "temp_mean_celsius",
         "precipitation_mm",
-        "wind_speed_max_kmh",
+        "wind_speed_kmh",
         "consumption_mw",
     ]
 
@@ -89,6 +89,7 @@ def run_pipeline():
         index=False,
     )
     print("🎉 Pipeline terminé ! Données enregistrées dans la table de faits.")
+    print(df_fact.head())
 
 
 if __name__ == "__main__":

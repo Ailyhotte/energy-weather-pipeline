@@ -32,7 +32,7 @@ def fetch_weather_city(city: tuple[str, dict]) -> pd.DataFrame:
     df = df.rename(
         columns={
             "time": "date",
-            "temperature_2m": "temp_celcius",
+            "temperature_2m": "temp_celsius",
             "rain": "rain_mm",
             "wind_speed_10m": "wind_speed_kmh",
         }
