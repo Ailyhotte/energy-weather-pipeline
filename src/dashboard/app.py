@@ -72,6 +72,18 @@ df_filtered = df_raw.copy()
 
 if selected_region != "Toutes":
     df_filtered = df_filtered[df_filtered["region_name"] == selected_region]
+else:
+    df_filtered = df_filtered.groupby(
+        ["full_date", "hour", "datetime"], as_index=False
+    ).agg(
+        {
+            "temp_mean_celsius": "mean",
+            "precipitation_mm": "mean",
+            "wind_speed_kmh": "mean",
+            "consumption_mw": "mean",
+        }
+    )
+    df_filtered["region_name"] = "Moyenne Nationale"
 
 if len(date_range) == 2:
     start_date, end_date = date_range
@@ -89,9 +101,17 @@ st.markdown(
 col1, col2, col3, col4 = st.columns(4)
 
 avg_temp = df_filtered["temp_mean_celsius"].mean()
-total_conso = df_filtered["consumption_mw"].sum()
-max_conso = df_filtered["consumption_mw"].max()
-records_count = len(df_filtered)
+total_conso = (
+    df_raw["consumption_mw"].sum()
+    if selected_region == "Toutes"
+    else df_filtered["consumption_mw"].sum()
+)
+max_conso = (
+    df_raw["consumption_mw"].max()
+    if selected_region == "Toutes"
+    else df_filtered["consumption_mw"].max()
+)
+records_count = len(df_raw) if selected_region == "Toutes" else len(df_filtered)
 
 col1.metric("Température Moyenne", f"{avg_temp:.1f} °C")
 col2.metric("Consommation Totale", f"{total_conso / 1000:.1f} GWh")
@@ -141,7 +161,7 @@ with tab1:
         margin=dict(l=20, r=20, t=30, b=20),
     )
 
-    st.plotly_chart(fig_time, use_container_width=True)
+    st.plotly_chart(fig_time, width="stretch")
 
 with tab2:
     st.subheader("Impact de la température sur la consommation")
@@ -161,4 +181,4 @@ with tab2:
         trendline="ols",  # Ligne de tendance linéaire
     )
 
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    st.plotly_chart(fig_scatter, width="stretch")

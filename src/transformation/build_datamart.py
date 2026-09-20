@@ -63,8 +63,6 @@ def run_pipeline():
     }
     df_merged = df_merged.rename(columns=column_mapping)
 
-    print(df_merged.head())
-
     # 4. Sélection stricte des colonnes de fact_weather_energy
     fact_columns = [
         "date_key",
@@ -89,7 +87,6 @@ def run_pipeline():
         index=False,
     )
     print("🎉 Pipeline terminé ! Données enregistrées dans la table de faits.")
-    print(df_fact.head())
 
 
 if __name__ == "__main__":
