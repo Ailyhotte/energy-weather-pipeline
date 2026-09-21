@@ -1,6 +1,6 @@
 # src/transformation/build_datamart.py
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from src.config import REGION_MAP, engine
 from src.ingestion.fetch_energy import fetch_energy_all
@@ -78,15 +78,41 @@ def run_pipeline():
     final_cols = [col for col in fact_columns if col in df_merged.columns]
     df_fact = df_merged[final_cols]
 
-    print("⏳ Insertion dans analytics.fact_weather_energy...")
-    df_fact.to_sql(
-        name="fact_weather_energy",
-        con=engine,
-        schema="analytics",
-        if_exists="append",
-        index=False,
-    )
-    print("🎉 Pipeline terminé ! Données enregistrées dans la table de faits.")
+    inspector = inspect(engine)
+    table_exists = inspector.has_table("fact_weather_energy", schema="analytics")
+
+    if table_exists:
+        query_existing = """
+            SELECT date_key, region_id, hour
+            FROM analytics.fact_weather_energy
+        """
+        existing_keys = pd.read_sql(query_existing, con=engine)
+    else:
+        existing_keys = pd.DataFrame(columns=["date_key", "region_id", "hour"])
+
+    if not existing_keys.empty:
+        merged = df_fact.merge(
+            existing_keys,
+            on=["date_key", "region_id", "hour"],
+            how="left",
+            indicator=True,
+        )
+        df_to_insert = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
+    else:
+        df_to_insert = df_fact
+
+    if not df_to_insert.empty:
+        print(f"⏳ Insertion de {len(df_to_insert)} nouvelles lignes...")
+        df_to_insert.to_sql(
+            name="fact_weather_energy",
+            con=engine,
+            schema="analytics",
+            if_exists="append",
+            index=False,
+        )
+        print("🎉 Nouvelles données insérées avec succès.")
+    else:
+        print("Aucune nouvelle donnée à insérer (tout est déjà à jour).")
 
 
 if __name__ == "__main__":
