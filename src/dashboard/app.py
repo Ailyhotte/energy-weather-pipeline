@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from scipy import stats
 from sqlalchemy import text
 
 from src.config import engine
@@ -159,6 +160,82 @@ with tab1:
     )
 
     st.plotly_chart(fig_time, width="stretch")
+
+    # --- CORRELATION ANALYSIS ---
+    st.markdown("### Temperature vs. Consumption Correlation")
+
+    # Drop missing values in target columns to prevent SciPy errors
+    df_corr = df_filtered.dropna(subset=["temp_mean_celsius", "consumption_mw"])
+
+    # Ensure we have enough data points and variation to compute correlation
+    if (
+        len(df_corr) >= 3
+        and df_corr["temp_mean_celsius"].std() > 0
+        and df_corr["consumption_mw"].std() > 0
+    ):
+        pearson_r, pearson_p = stats.pearsonr(
+            df_corr["temp_mean_celsius"], df_corr["consumption_mw"]
+        )
+        spearman_r, spearman_p = stats.spearmanr(
+            df_corr["temp_mean_celsius"], df_corr["consumption_mw"]
+        )
+
+        corr_col1, corr_col2, corr_col3 = st.columns(3)
+
+        # Interpret Pearson coefficient
+        p_strength = (
+            "Strong Negative"
+            if pearson_r < -0.7  # type: ignore
+            else (
+                "Moderate Negative"
+                if pearson_r < -0.3  # type: ignore
+                else (
+                    "Weak / None"
+                    if -0.3 <= pearson_r <= 0.3  # type: ignore
+                    else "Moderate Positive" if pearson_r < 0.7 else "Strong Positive"  # type: ignore
+                )
+            )
+        )
+        corr_col1.metric(
+            label="Pearson Correlation (Linear)",
+            value=f"{pearson_r:.2f}",
+            delta=p_strength,
+            delta_color="off",
+            help="Measures linear relationship (-1 to +1).",
+        )
+
+        # Interpret Spearman coefficient
+        s_strength = (
+            "Strong Monotone"
+            if abs(spearman_r) > 0.7  # type: ignore
+            else "Moderate Monotone" if abs(spearman_r) > 0.3 else "Weak / None"  # type: ignore
+        )
+        corr_col2.metric(
+            label="Spearman Correlation (Rank)",
+            value=f"{spearman_r:.2f}",
+            delta=s_strength,
+            delta_color="off",
+            help="Measures monotonic relationship (-1 to +1), robust to non-linear trends.",
+        )
+
+        # Statistical significance badge
+        p_val_text = (
+            "p < 0.001 (Statistically Significant)"
+            if pearson_p < 0.001  # type: ignore
+            else f"p = {pearson_p:.4f}"
+        )
+        corr_col3.metric(
+            label="Statistical Significance",
+            value="Valid" if pearson_p < 0.05 else "Not Significant",  # type: ignore
+            delta=p_val_text,
+            delta_color="normal" if pearson_p < 0.05 else "inverse",  # type: ignore
+            help="p-value < 0.05 indicates the correlation is statistically meaningful and not due to random noise.",
+        )
+
+    else:
+        st.warning(
+            "⚠️ Not enough data points or variance in the selected range to calculate correlation."
+        )
 
 st.divider()
 
