@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from src.config import engine
 
-# Configuration de la page
+# Page configuration
 st.set_page_config(
     page_title="Weather & Energy Dashboard",
     layout="wide",
@@ -16,7 +16,7 @@ st.set_page_config(
 
 @st.cache_data(ttl=600)
 def load_data():
-    """Charge les données du datamart en joignant les tables de faits et dimensions."""
+    """Load datamart data by joining fact and dimension tables."""
     query = """
     SELECT 
         d.full_date,
@@ -34,42 +34,42 @@ def load_data():
     with engine.connect() as conn:
         df = pd.read_sql(text(query), con=conn)
 
-    # Reconstitution d'un datetime complet pour les axes de temps
+    # Build a complete datetime value for time axes
     df["datetime"] = pd.to_datetime(df["full_date"]) + pd.to_timedelta(
         df["hour"], unit="h"
     )
     return df
 
 
-# --- CHARGEMENT DES DONNÉES ---
+# --- DATA LOADING ---
 try:
     df_raw = load_data()
 except Exception as e:
-    st.error(f"❌ Erreur lors de la connexion à la base de données : {e}")
+    st.error(f"❌ Error connecting to the database: {e}")
     st.stop()
 
-# --- BARRE LATÉRALE : FILTRES ---
-st.sidebar.header("🔍 Filtres")
+# --- SIDEBAR FILTERS ---
+st.sidebar.header("🔍 Filters")
 
-# Filtre Région
-regions = ["Toutes"] + list(df_raw["region_name"].unique())
-selected_region = st.sidebar.selectbox("Sélectionner une région", regions)
+# Region filter
+regions = ["All"] + list(df_raw["region_name"].unique())
+selected_region = st.sidebar.selectbox("Select a region", regions)
 
-# Filtre Dates
+# Date filter
 min_date = df_raw["full_date"].min()
 max_date = df_raw["full_date"].max()
 
 date_range = st.sidebar.date_input(
-    "Période",
+    "Date range",
     value=(min_date, max_date),
     min_value=min_date,
     max_value=max_date,
 )
 
-# Application des filtres
+# Apply filters
 df_filtered = df_raw.copy()
 
-if selected_region != "Toutes":
+if selected_region != "All":
     df_filtered = df_filtered[df_filtered["region_name"] == selected_region]
 else:
     df_filtered = df_filtered.groupby(
@@ -82,7 +82,7 @@ else:
             "consumption_mw": "mean",
         }
     )
-    df_filtered["region_name"] = "Moyenne Nationale"
+    df_filtered["region_name"] = "National Average"
 
 if len(date_range) == 2:
     start_date, end_date = date_range
@@ -91,48 +91,46 @@ if len(date_range) == 2:
         & (df_filtered["full_date"] <= end_date)
     ]
 
-# --- EN-TÊTE ET KPI ---
+# --- HEADER AND KPIs ---
 st.title("Weather & Energy data Analysis")
-st.markdown(
-    "Visualisation croisée des données météorologiques et de la consommation d'électricité régionale."
-)
+st.markdown("Explore weather data alongside regional electricity consumption.")
 
 col1, col2, col3, col4 = st.columns(4)
 
 avg_temp = df_filtered["temp_mean_celsius"].mean()
 total_conso = (
     df_raw["consumption_mw"].sum()
-    if selected_region == "Toutes"
+    if selected_region == "All"
     else df_filtered["consumption_mw"].sum()
 )
 max_conso = (
     df_raw["consumption_mw"].max()
-    if selected_region == "Toutes"
+    if selected_region == "All"
     else df_filtered["consumption_mw"].max()
 )
-records_count = len(df_raw) if selected_region == "Toutes" else len(df_filtered)
+records_count = len(df_raw) if selected_region == "All" else len(df_filtered)
 
-col1.metric("Température Moyenne", f"{avg_temp:.1f} °C")
-col2.metric("Consommation Totale", f"{total_conso / 1000:.1f} GWh")
-col3.metric("Pic de Consommation", f"{max_conso:.0f} MW")
-col4.metric("Points de données", f"{records_count:,}")
+col1.metric("Average Temperature", f"{avg_temp:.1f} °C")
+col2.metric("Total Consumption", f"{total_conso / 1000:.1f} GWh")
+col3.metric("Peak Consumption", f"{max_conso:.0f} MW")
+col4.metric("Data Points", f"{records_count:,}")
 
 st.divider()
 
-# --- GRAPHIQUES ---
-tab1, tab2 = st.tabs(["Évolution Temporelle", "Thermo-sensibilité"])
+# --- CHARTS ---
+tab1 = st.tabs(["Time Evolution"])[0]
 
 with tab1:
-    st.subheader("Consommation et Température au fil du temps")
+    st.subheader("Consumption and Temperature Over Time")
 
-    # Double axe Y : Consommation (MW) et Température (°C)
+    # Dual Y-axis: consumption (MW) and temperature (°C)
     fig_time = go.Figure()
 
     fig_time.add_trace(
         go.Scatter(
             x=df_filtered["datetime"],
             y=df_filtered["consumption_mw"],
-            name="Consommation (MW)",
+            name="Consumption (MW)",
             line=dict(color="#1f77b4", width=2),
         )
     )
@@ -141,17 +139,17 @@ with tab1:
         go.Scatter(
             x=df_filtered["datetime"],
             y=df_filtered["temp_mean_celsius"],
-            name="Température (°C)",
+            name="Temperature (°C)",
             line=dict(color="#ff7f0e", width=2, dash="dot"),
             yaxis="y2",
         )
     )
 
     fig_time.update_layout(
-        xaxis=dict(title="Date & Heure"),
-        yaxis=dict(title=dict(text="Consommation (MW)", font=dict(color="#1f77b4"))),
+        xaxis=dict(title="Date & Time"),
+        yaxis=dict(title=dict(text="Consumption (MW)", font=dict(color="#1f77b4"))),
         yaxis2=dict(
-            title=dict(text="Température (°C)", font=dict(color="#ff7f0e")),
+            title=dict(text="Temperature (°C)", font=dict(color="#ff7f0e")),
             overlaying="y",
             side="right",
         ),
@@ -161,26 +159,6 @@ with tab1:
     )
 
     st.plotly_chart(fig_time, width="stretch")
-
-with tab2:
-    st.subheader("Impact de la température sur la consommation")
-
-    fig_scatter = px.scatter(
-        df_filtered,
-        x="temp_mean_celsius",
-        y="consumption_mw",
-        color="region_name" if selected_region == "Toutes" else "hour",
-        labels={
-            "temp_mean_celsius": "Température (°C)",
-            "consumption_mw": "Consommation (MW)",
-            "region_name": "Région",
-            "hour": "Heure de la journée",
-        },
-        title="Relation Température / Consommation",
-        trendline="ols",  # Ligne de tendance linéaire
-    )
-
-    st.plotly_chart(fig_scatter, width="stretch")
 
 st.divider()
 
