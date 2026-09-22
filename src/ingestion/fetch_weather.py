@@ -21,6 +21,7 @@ def fetch_weather_city(city: tuple[str, dict]) -> pd.DataFrame:
         ],
         "timezone": "Europe/London",
         "forecast_days": 1,
+        "past_days": 30,
     }
 
     response = requests.get(url=BASE_URL, params=params, timeout=10)
