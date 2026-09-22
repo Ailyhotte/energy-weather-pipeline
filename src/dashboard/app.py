@@ -9,8 +9,7 @@ from src.config import engine
 
 # Configuration de la page
 st.set_page_config(
-    page_title="Dashboard Météo & Énergie",
-    page_icon="⚡",
+    page_title="Weather & Energy Dashboard",
     layout="wide",
 )
 
@@ -93,7 +92,7 @@ if len(date_range) == 2:
     ]
 
 # --- EN-TÊTE ET KPI ---
-st.title("Analyse données Météo & Consommation Électrique")
+st.title("Weather & Energy data Analysis")
 st.markdown(
     "Visualisation croisée des données météorologiques et de la consommation d'électricité régionale."
 )
@@ -182,3 +181,13 @@ with tab2:
     )
 
     st.plotly_chart(fig_scatter, width="stretch")
+
+st.divider()
+
+## --- Footer ---
+
+with st.bottom:
+    st.caption("Made with Streamlit by Elliot.")
+    st.caption(
+        "Data sources: Open-Meteo @ https://open-meteo.com & ODRE @ https://odre.opendatasoft.com/explore/dataset/eco2mix-regional-tr."
+    )
