@@ -1,8 +1,8 @@
-from operator import le
-from pathlib import Path
+# src/database/init_db.py
 import pandas as pd
 from sqlalchemy import text
-from src.config import engine, REGION_MAP
+
+from src.config import REGION_MAP, engine
 
 
 def apply_schema():
@@ -15,21 +15,22 @@ def apply_schema():
     print("✅ Schéma SQL appliqué.")
 
 
+def reset_facts():
+    """Supprime la table de faits pour forcer sa recréation par schema.sql."""
+    with engine.begin() as conn:
+        conn.execute(
+            text("DROP TABLE IF EXISTS analytics.fact_weather_energy CASCADE;")
+        )
+    print("🧹 Table de faits supprimée.")
+
+
 def reset_dimensions():
-    """Vides les tables de dimensions pour repartir d'un état propre."""
+    """Vide les tables de dimensions pour repartir d'un état propre."""
     with engine.begin() as conn:
         conn.execute(
             text("TRUNCATE TABLE analytics.dim_region, analytics.dim_date CASCADE;")
         )
     print("🧹 Tables de dimensions nettoyées.")
-
-
-def reset_facts():
-    with engine.begin() as conn:
-        conn.execute(
-            text("DROP TABLE IF EXISTS analytics.fact_weather_energy CASCADE;")
-        )
-    print("🧹 Tables de faits nettoyées.")
 
 
 def populate_dim_region():
@@ -51,7 +52,6 @@ def populate_dim_date():
     dates = pd.date_range(start="2026-01-01", end="2026-12-31", freq="D")
     df = pd.DataFrame({"full_date": dates.date})
 
-    # Date key au format AAAAMMJJ (ex: 20260917)
     df["date_key"] = pd.to_datetime(df["full_date"]).dt.strftime("%Y%m%d").astype(int)
     df["year"] = pd.to_datetime(df["full_date"]).dt.year
     df["month"] = pd.to_datetime(df["full_date"]).dt.month
@@ -70,11 +70,10 @@ def populate_dim_date():
 
 
 def init_db():
-    """Fonction principale d'initialisation."""
     print("⏳ Initialisation de la base de données...")
+    reset_facts()
     apply_schema()
     reset_dimensions()
-    reset_facts()
     populate_dim_region()
     populate_dim_date()
     print("🎉 Initialisation terminée avec succès !")

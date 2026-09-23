@@ -14,7 +14,6 @@ def fetch_energy_region(region: str) -> pd.DataFrame:
         "order_by": "date_heure DESC",
     }
     response = requests.get(URL_DATASET, params=params)
-    print(response.json().keys())
     if "error_code" in response.json():
         raise ValueError(
             f"Error fetching data for region {region}: {response.json()['error_code']}, message: {response.json()['message']}"

@@ -1,10 +1,11 @@
 # src/transformation/build_datamart.py
 import pandas as pd
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect
 
 from src.config import REGION_MAP, engine
 from src.ingestion.fetch_energy import fetch_energy_all
 from src.ingestion.fetch_weather import fetch_weather_all
+from src.transformation.anomaly_detection import detect_anomalies
 
 
 def process_energy_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -43,11 +44,9 @@ def run_pipeline():
 
     print("⏳ Transformation pour le schéma du Datamart...")
 
-    # 1. Extraction de la clé de date journalière (AAAAMMJJ) et de l'heure
     df_merged["date_key"] = df_merged["date"].dt.strftime("%Y%m%d").astype(int)
     df_merged["hour"] = df_merged["date"].dt.hour
 
-    # 2. Récupération de dim_region pour mapper avec region_id
     dim_region = pd.read_sql(
         "SELECT region_id, region_name FROM analytics.dim_region", con=engine
     )
@@ -55,15 +54,18 @@ def run_pipeline():
         dim_region, left_on="region", right_on="region_name", how="inner"
     )
 
-    # 3. Alignement des noms de colonnes avec schema.sql
-    # Adapte ces noms selon le nom exact de tes colonnes issues de la fusion
     column_mapping = {
         "temp_celsius": "temp_mean_celsius",
         "rain_mm": "precipitation_mm",
     }
     df_merged = df_merged.rename(columns=column_mapping)
 
-    # 4. Sélection stricte des colonnes de fact_weather_energy
+    print("⏳ Détection des anomalies avec Isolation Forest...")
+    df_merged = detect_anomalies(df_merged, contamination=0.01)
+    anomalies_found = df_merged["is_anomaly"].sum()
+    print(df_merged[df_merged["is_anomaly"]].head(5))
+    print(f"🌲 Détection terminée : {anomalies_found} anomalie(s) identifiée(s).")
+
     fact_columns = [
         "date_key",
         "region_id",
@@ -72,9 +74,10 @@ def run_pipeline():
         "precipitation_mm",
         "wind_speed_kmh",
         "consumption_mw",
+        "is_anomaly",
+        "anomaly_score",
     ]
 
-    # Conserve uniquement les colonnes présentes dans la table de faits
     final_cols = [col for col in fact_columns if col in df_merged.columns]
     df_fact = df_merged[final_cols]
 

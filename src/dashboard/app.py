@@ -1,6 +1,5 @@
 # src/dashboard/app.py
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from scipy import stats
@@ -26,7 +25,9 @@ def load_data():
         f.temp_mean_celsius,
         f.precipitation_mm,
         f.wind_speed_kmh,
-        f.consumption_mw
+        f.consumption_mw,
+        f.is_anomaly,
+        f.anomaly_score
     FROM analytics.fact_weather_energy f
     JOIN analytics.dim_region r ON f.region_id = r.region_id
     JOIN analytics.dim_date d ON f.date_key = d.date_key
@@ -46,11 +47,11 @@ def load_data():
 try:
     df_raw = load_data()
 except Exception as e:
-    st.error(f"❌ Error connecting to the database: {e}")
+    st.error(f"Error connecting to the database: {e}")
     st.stop()
 
 # --- SIDEBAR FILTERS ---
-st.sidebar.header("🔍 Filters")
+st.sidebar.header("Filters")
 
 # Region filter
 regions = ["All"] + list(df_raw["region_name"].unique())
@@ -67,6 +68,11 @@ date_range = st.sidebar.date_input(
     max_value=max_date,
 )
 
+# Anomaly display toggle
+st.sidebar.markdown("---")
+st.sidebar.header("Detection Settings")
+show_anomalies = st.sidebar.checkbox("Highlight Anomalies on Chart", value=True)
+
 # Apply filters
 df_filtered = df_raw.copy()
 
@@ -81,6 +87,8 @@ else:
             "precipitation_mm": "mean",
             "wind_speed_kmh": "mean",
             "consumption_mw": "mean",
+            "is_anomaly": "max",
+            "anomaly_score": "min",
         }
     )
     df_filtered["region_name"] = "National Average"
@@ -93,10 +101,12 @@ if len(date_range) == 2:
     ]
 
 # --- HEADER AND KPIs ---
-st.title("Weather & Energy data Analysis")
-st.markdown("Explore weather data alongside regional electricity consumption.")
+st.title("Weather & Energy Data Analysis")
+st.markdown(
+    "Explore weather data alongside regional electricity consumption with anomaly detection."
+)
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 avg_temp = df_filtered["temp_mean_celsius"].mean()
 total_conso = (
@@ -110,16 +120,27 @@ max_conso = (
     else df_filtered["consumption_mw"].max()
 )
 records_count = len(df_raw) if selected_region == "All" else len(df_filtered)
+anomaly_count = (
+    int(df_raw["is_anomaly"].sum())
+    if selected_region == "All"
+    else int(df_filtered["is_anomaly"].sum())
+)
 
 col1.metric("Average Temperature", f"{avg_temp:.1f} °C")
 col2.metric("Total Consumption", f"{total_conso / 1000:.1f} GWh")
 col3.metric("Peak Consumption", f"{max_conso:.0f} MW")
 col4.metric("Data Points", f"{records_count:,}")
+col5.metric(
+    "Anomalies Detected",
+    f"{anomaly_count}",
+    delta=f"{(anomaly_count / max(records_count, 1)) * 100:.1f}% of total",
+    delta_color="inverse",
+)
 
 st.divider()
 
 # --- CHARTS ---
-tab1 = st.tabs(["Time Evolution"])[0]
+tab1, tab2 = st.tabs(["Time Evolution", "Anomalies Analysis"])
 
 with tab1:
     st.subheader("Consumption and Temperature Over Time")
@@ -132,7 +153,7 @@ with tab1:
             x=df_filtered["datetime"],
             y=df_filtered["consumption_mw"],
             name="Consumption (MW)",
-            line=dict(color="#1f77b4", width=2),
+            line={"color": "#1f77b4", "width": 2},
         )
     )
 
@@ -141,22 +162,41 @@ with tab1:
             x=df_filtered["datetime"],
             y=df_filtered["temp_mean_celsius"],
             name="Temperature (°C)",
-            line=dict(color="#ff7f0e", width=2, dash="dot"),
+            line={"color": "#ff7f0e", "width": 2, "dash": "dot"},
             yaxis="y2",
         )
     )
 
+    if show_anomalies:
+        anomalies_df = df_filtered[df_filtered["is_anomaly"] == True]
+        if not anomalies_df.empty:
+            fig_time.add_trace(
+                go.Scatter(
+                    x=anomalies_df["datetime"],
+                    y=anomalies_df["consumption_mw"],
+                    mode="markers",
+                    name="Anomaly (Isolation Forest)",
+                    marker={"color": "#d62728", "size": 9, "symbol": "x"},
+                    hovertemplate=(
+                        "<b>Anomaly Detected</b><br>"
+                        "Date: %{x}<br>"
+                        "Consumption: %{y:.0f} MW<br>"
+                        "<extra></extra>"
+                    ),
+                )
+            )
+
     fig_time.update_layout(
-        xaxis=dict(title="Date & Time"),
-        yaxis=dict(title=dict(text="Consumption (MW)", font=dict(color="#1f77b4"))),
-        yaxis2=dict(
-            title=dict(text="Temperature (°C)", font=dict(color="#ff7f0e")),
-            overlaying="y",
-            side="right",
-        ),
-        legend=dict(x=0.01, y=0.99),
+        xaxis={"title": "Date & Time"},
+        yaxis={"title": {"text": "Consumption (MW)", "font": {"color": "#1f77b4"}}},
+        yaxis2={
+            "title": {"text": "Temperature (°C)", "font": {"color": "#ff7f0e"}},
+            "overlaying": "y",
+            "side": "right",
+        },
+        legend={"x": 0.01, "y": 0.99},
         hovermode="x unified",
-        margin=dict(l=20, r=20, t=30, b=20),
+        margin={"l": 20, "r": 20, "t": 30, "b": 20},
     )
 
     st.plotly_chart(fig_time, width="stretch")
@@ -234,8 +274,45 @@ with tab1:
 
     else:
         st.warning(
-            "⚠️ Not enough data points or variance in the selected range to calculate correlation."
+            "Not enough data points or variance in the selected range to calculate correlation."
         )
+
+with tab2:
+    st.subheader("Detected Anomaly Events")
+    anomalies_only = df_filtered[df_filtered["is_anomaly"] == True].sort_values(
+        by="datetime", ascending=False
+    )
+    if selected_region == "All":
+        anomalies_only = df_raw[df_raw["is_anomaly"] == True].sort_values(
+            by="datetime", ascending=False
+        )
+
+    if not anomalies_only.empty:
+        st.write(
+            f"Found **{len(anomalies_only)}** abnormal data points in the selected range:"
+        )
+        display_cols = [
+            "datetime",
+            "region_name",
+            "consumption_mw",
+            "temp_mean_celsius",
+            "anomaly_score",
+        ]
+        st.dataframe(
+            anomalies_only[display_cols].rename(
+                columns={
+                    "datetime": "Date & Time",
+                    "region_name": "Region",
+                    "consumption_mw": "Consumption (MW)",
+                    "temp_mean_celsius": "Temperature (°C)",
+                    "anomaly_score": "Isolation Score",
+                }
+            ),
+            use_container_width=True,
+        )
+    else:
+        st.info("No anomalies detected in the selected region and date range.")
+
 
 st.divider()
 
