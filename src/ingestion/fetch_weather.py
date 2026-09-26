@@ -4,6 +4,16 @@ import pandas as pd
 CITIES = {
     "Nantes": {"lat": 47.2172, "lon": -1.5534},
     "Bordeaux": {"lat": 44.8412, "lon": -0.5805},
+    "Marseille": {"lat": 43.297, "lon": 5.3811},
+    "Lyon": {"lat": 45.7491, "lon": 4.8479},
+    "Dijon": {"lat": 47.3134, "lon": 5.0139},
+    "Rennes": {"lat": 48.1111, "lon": -1.6743},
+    "Orleans": {"lat": 47.9025, "lon": 1.9041},
+    "Ajaccio": {"lat": 41.9189, "lon": 8.7381},
+    "Strasbourg": {"lat": 48.5839, "lon": 7.7455},
+    "Lille": {"lat": 50.6339, "lon": 3.0551},
+    "Rouen": {"lat": 49.4431, "lon": 1.0993},
+    "Toulouse": {"lat": 43.6043, "lon": 1.4437},
 }
 
 BASE_URL = "https://api.open-meteo.com/v1/forecast"

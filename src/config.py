@@ -2,8 +2,18 @@ import os
 from sqlalchemy import create_engine
 
 REGION_MAP = {
-    "Nantes": "Pays de la Loire",
+    "Lyon": "Auvergne-Rhône-Alpes",
+    "Dijon": "Bourgogne-Franche-Comté",
+    "Rennes": "Bretagne",
+    "Orléans": "Centre-Val de Loire",
+    "Ajaccio": "Corse",
+    "Strasbourg": "Grand Est",
+    "Lille": "Hauts-de-France",
+    "Rouen": "Normandie",
     "Bordeaux": "Nouvelle-Aquitaine",
+    "Toulouse": "Occitanie",
+    "Nantes": "Pays de la Loire",
+    "Marseille": "Provence-Alpes-Côte d'Azur",
 }
 
 DB_USER = os.getenv("POSTGRES_USER", "postgres")

@@ -58,8 +58,11 @@ regions = ["All"] + list(df_raw["region_name"].unique())
 selected_region = st.sidebar.selectbox("Select a region", regions)
 
 # Date filter
-min_date = df_raw["full_date"].min()
-max_date = df_raw["full_date"].max()
+df_raw = df_raw.dropna(subset=["full_date"])
+dates_series = pd.to_datetime(df_raw["full_date"]).dt.date
+
+min_date = dates_series.min()
+max_date = dates_series.max()
 
 date_range = st.sidebar.date_input(
     "Date range",
